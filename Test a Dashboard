@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rochester Safe Communities Simulator</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Rochester Safe Communities Simulator</h1>
+    <p>Translate research into action — explore how interventions affect community safety.</p>
+  </header>
+
+  <main>
+    <section id="controls">
+      <h2>Intervention Controls</h2>
+      <div class="slider-group">
+        <label>Patrol Staffing: <span id="staffingVal">50%</span></label>
+        <input type="range" id="staffing" min="0" max="100" value="50" />
+      </div>
+
+      <div class="slider-group">
+        <label>Community Service Officers: <span id="csoVal">50%</span></label>
+        <input type="range" id="cso" min="0" max="100" value="50" />
+      </div>
+
+      <div class="slider-group">
+        <label>Street Lighting Improvements: <span id="lightingVal">50%</span></label>
+        <input type="range" id="lighting" min="0" max="100" value="50" />
+      </div>
+
+      <div class="slider-group">
+        <label>Liquor Store Density: <span id="liquorVal">50%</span></label>
+        <input type="range" id="liquor" min="0" max="100" value="50" />
+      </div>
+
+      <div class="slider-group">
+        <label>Access to Fresh Food: <span id="foodVal">50%</span></label>
+        <input type="range" id="food" min="0" max="100" value="50" />
+      </div>
+
+      <div class="slider-group">
+        <label>Youth Outreach Programs: <span id="youthVal">50%</span></label>
+        <input type="range" id="youth" min="0" max="100" value="50" />
+      </div>
+
+      <div class="slider-group">
+        <label>Mental Health Response Teams: <span id="mentalVal">50%</span></label>
+        <input type="range" id="mental" min="0" max="100" value="50" />
+      </div>
+
+      <div class="slider-group">
+        <label>Technology (Cameras / Drones): <span id="techVal">50%</span></label>
+        <input type="range" id="tech" min="0" max="100" value="50" />
+      </div>
+
+      <button id="implementBtn">Implement & Generate Proposal</button>
+    </section>
+
+    <section id="results">
+      <h2>Projected Impact on Crime</h2>
+      <canvas id="impactChart"></canvas>
+    </section>
+  </main>
+
+  <footer>
+    <p>© 2025 Rochester Police Department | Data-informed Community Safety Modeling</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
+:root {
+  --rpd-blue: #003366;
+  --rpd-gold: #d4af37;
+  --rpd-white: #ffffff;
+  --rpd-gray: #f5f5f5;
+}
+
+body {
+  font-family: "Segoe UI", sans-serif;
+  margin: 0;
+  background: var(--rpd-gray);
+  color: var(--rpd-blue);
+}
+
+header {
+  background: var(--rpd-blue);
+  color: var(--rpd-white);
+  padding: 1.5rem;
+  text-align: center;
+}
+
+h1 {
+  margin-bottom: 0.5rem;
+}
+
+main {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  padding: 2rem;
+}
+
+#controls, #results {
+  background: var(--rpd-white);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 45%;
+  min-width: 320px;
+}
+
+.slider-group {
+  margin-bottom: 1rem;
+}
+
+input[type="range"] {
+  width: 100%;
+}
+
+button {
+  background: var(--rpd-gold);
+  color: var(--rpd-blue);
+  font-weight: bold;
+  padding: 0.8rem 1.2rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+button:hover {
+  background: #e0c34a;
+}
+
+footer {
+  text-align: center;
+  padding: 1rem;
+  background: var(--rpd-blue);
+  color: var(--rpd-white);
+}
+const sliders = document.querySelectorAll("input[type='range']");
+const labels = {
+  staffing: document.getElementById("staffingVal"),
+  cso: document.getElementById("csoVal"),
+  lighting: document.getElementById("lightingVal"),
+  liquor: document.getElementById("liquorVal"),
+  food: document.getElementById("foodVal"),
+  youth: document.getElementById("youthVal"),
+  mental: document.getElementById("mentalVal"),
+  tech: document.getElementById("techVal"),
+};
+
+// Update slider labels
+sliders.forEach(slider => {
+  slider.addEventListener("input", () => {
+    labels[slider.id].innerText = slider.value + "%";
+    updateChart();
+  });
+});
+
+// Baseline crime values
+const baseline = {
+  violent: 100,
+  property: 100,
+  disorder: 100,
+};
+
+const ctx = document.getElementById("impactChart").getContext("2d");
+let chart = new Chart(ctx, {
+  type: "bar",
+  data: {
+    labels: ["Violent Crime", "Property Crime", "Disorder"],
+    datasets: [{
+      label: "Projected Index (100 = Baseline)",
+      data: [100, 100, 100],
+      backgroundColor: ["#003366", "#d4af37", "#779ecb"]
+    }]
+  },
+  options: {
+    scales: {
+      y: { beginAtZero: true, max: 120 }
+    }
+  }
+});
+
+function updateChart() {
+  const values = getImpactScores();
+  chart.data.datasets[0].data = [values.violent, values.property, values.disorder];
+  chart.update();
+}
+
+// Simple model: weighting effects on crime
+function getImpactScores() {
+  const v = {
+    staffing: +document.getElementById("staffing").value,
+    cso: +document.getElementById("cso").value,
+    lighting: +document.getElementById("lighting").value,
+    liquor: +document.getElementById("liquor").value,
+    food: +document.getElementById("food").value,
+    youth: +document.getElementById("youth").value,
+    mental: +document.getElementById("mental").value,
+    tech: +document.getElementById("tech").value,
+  };
+
+  // Weighted impact calculation
+  const violent =
+    100 -
+    (v.staffing * 0.2 +
+      v.cso * 0.15 +
+      v.mental * 0.15 +
+      v.tech * 0.1 +
+      v.youth * 0.05 -
+      v.liquor * 0.1);
+  const property =
+    100 -
+    (v.staffing * 0.1 +
+      v.cso * 0.1 +
+      v.lighting * 0.2 +
+      v.food * 0.1 +
+      v.tech * 0.1 -
+      v.liquor * 0.1);
+  const disorder =
+    100 -
+    (v.cso * 0.2 +
+      v.youth * 0.15 +
+      v.lighting * 0.1 +
+      v.food * 0.1 -
+      v.liquor * 0.15);
+
+  return {
+    violent: Math.max(60, violent),
+    property: Math.max(60, property),
+    disorder: Math.max(60, disorder),
+  };
+}
+
+// Generate PDF Proposal
+document.getElementById("implementBtn").addEventListener("click", () => {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFont("helvetica", "bold");
+  doc.text("Rochester Safe Communities Proposal", 10, 10);
+  doc.setFont("helvetica", "normal");
+  doc.text("This proposal outlines targeted interventions based on simulation inputs.", 10, 20);
+  doc.text("Intervention Levels:", 10, 30);
+
+  let y = 40;
+  sliders.forEach(s => {
+    doc.text(`${s.id.toUpperCase()}: ${s.value}%`, 10, y);
+    y += 8;
+  });
+
+  const results = getImpactScores();
+  y += 10;
+  doc.text("Projected Outcomes:", 10, y);
+  y += 10;
+  doc.text(`Violent Crime Index: ${results.violent.toFixed(1)}`, 10, y);
+  doc.text(`Property Crime Index: ${results.property.toFixed(1)}`, 10, y + 10);
+  doc.text(`Disorder Index: ${results.disorder.toFixed(1)}`, 10, y + 20);
+
+  y += 40;
+  doc.text("Each slider adjustment reflects actionable strategies identified in research such as:", 10, y);
+  y += 10;
+  doc.text("• Braga et al. (2019) – Hot spots policing and focused deterrence", 10, y);
+  y += 8;
+  doc.text("• Lum & Nagin (2021) – Evidence-based policing and community collaboration", 10, y);
+  y += 8;
+  doc.text("• Welsh & Farrington (2008) – Street lighting and environmental design", 10, y);
+  y += 8;
+  doc.text("• Sampson et al. (2012) – Collective efficacy and community structure", 10, y);
+
+  y += 15;
+  doc.text("This simulation supports data-informed decision-making to improve safety and trust.", 10, y);
+
+  doc.save("Rochester_Safe_Communities_Proposal.pdf");
+});
